@@ -8,51 +8,45 @@ set :deploy_via, :remote_cache
 # ask :branch, `git rev-parse --abbrev-ref HEAD`.chomp
 
 # Default deploy_to directory is /var/www/my_app_name
-set :deploy_to, "/srv/ontoportal/ncbo_cron_deployments"
+set :deploy_to, "/opt/ontoportal/ncbo_cron"
 
 # Default value for :log_level is :debug
 set :log_level, :debug
 
 # Default value for :linked_files is []
-# append :linked_files, "config/database.yml", 'config/master.key'
+append :linked_files, "config/config.rb"
 
 # Default value for linked_dirs is []
 # set :linked_dirs, %w{log tmp/pids tmp/cache tmp/sockets vendor/bundle public/system}
-set :linked_dirs, %w{log vendor/bundle tmp/pids tmp/sockets public/system}
+set :linked_dirs, %w{logs vendor/bundle tmp/pids tmp/sockets public/system}
 
+set :default_env, {
+  'PATH' => "/usr/local/rbenv/shims:/usr/local/rbenv/bin:/usr/bin:$PATH"
+}
 
 # Default value for keep_releases is 5
 set :keep_releases, 5
 set :config_folder_path, "#{fetch(:application)}/#{fetch(:stage)}"
 
+# set bundle options
+set :bundle_flags, "--verbose"
 
 # If you want to restart using `touch tmp/restart.txt`, add this to your config/deploy.rb:
 
-SSH_JUMPHOST = ENV.include?('SSH_JUMPHOST') ? ENV['SSH_JUMPHOST'] : 'jumpbox.lirmm.fr'
-SSH_JUMPHOST_USER = ENV.include?('SSH_JUMPHOST_USER') ? ENV['SSH_JUMPHOST_USER'] : 'sbouazzouni'
+# SSH_JUMPHOST = ENV.include?('SSH_JUMPHOST') ? ENV['SSH_JUMPHOST'] : 'jumpbox.lirmm.fr'
+# SSH_JUMPHOST_USER = ENV.include?('SSH_JUMPHOST_USER') ? ENV['SSH_JUMPHOST_USER'] : 'sbouazzouni'
+# JUMPBOX_PROXY = "#{SSH_JUMPHOST_USER}@#{SSH_JUMPHOST}"
 
-JUMPBOX_PROXY = "#{SSH_JUMPHOST_USER}@#{SSH_JUMPHOST}"
 set :ssh_options, {
   user: 'ontoportal',
-  forward_agent: 'true',
-  keys: %w(config/deploy_id_rsa),
-  auth_methods: %w(publickey),
-  # use ssh proxy if API servers are on a private network
-  proxy: Net::SSH::Proxy::Command.new("ssh #{JUMPBOX_PROXY} -W %h:%p")
+  # forward_agent: 'true',
+  # keys: %w(config/deploy_id_rsa),
+  # auth_methods: %w(publickey),
+  # proxy: Net::SSH::Proxy::Command.new("ssh #{JUMPBOX_PROXY} -W %h:%p")
 }
 
 # private git repo for configuraiton
-PRIVATE_CONFIG_REPO = ENV.include?('PRIVATE_CONFIG_REPO') ? ENV['PRIVATE_CONFIG_REPO'] : 'https://your_github_pat_token@github.com/your_organization/ontoportal-configs.git'
-desc "Check if agent forwarding is working"
-task :forwarding do
-  on roles(:all) do |h|
-    if test("env | grep SSH_AUTH_SOCK")
-      info "Agent forwarding is up to #{h}"
-    else
-      error "Agent forwarding is NOT up to #{h}"
-    end
-  end
-end
+# PRIVATE_CONFIG_REPO = ENV.include?('PRIVATE_CONFIG_REPO') ? ENV['PRIVATE_CONFIG_REPO'] : 'https://your_github_pat_token@github.com/your_organization/ontoportal-configs.git'
 
 # Smoke test for checking if the service is up
 desc 'Smoke test: Check if ncbo_cron service is running'
@@ -91,15 +85,12 @@ namespace :deploy do
   desc 'Restart application'
   task :restart do
     on roles(:app), in: :sequence, wait: 5 do
-      # Your restart mechanism here, for example:
-      # execute :touch, release_path.join('tmp/restart.txt')
-      execute 'sudo systemctl restart ncbo_cron'
+      execute 'sudo systemctl restart ncbo_cron.service'
       execute 'sleep 5'
     end
   end
 
   after :updating, :get_config
   after :publishing, :restart
-  after :restart, :smoke_test
 
 end
