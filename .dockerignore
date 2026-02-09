@@ -4,6 +4,23 @@
 .gitignore
 # Logs
 log/*
+# Secrets (never bake local env/keys into images)
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+secrets*
+config/master.key
+config/credentials*
 # Temp files
 tmp/*
 # Editor temp files
