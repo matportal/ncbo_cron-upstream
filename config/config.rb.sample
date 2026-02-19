@@ -85,6 +85,12 @@ NcboCron.config do |config|
   # this is in addition to storing it in Redis
   config.analytics_path_to_ga_data_file = "data/your_ga_data.json"
   config.analytics_start_date                    = '2015-01-01'
+
+  # Matomo analytics config (preferred over GA when provided)
+  config.matomo_url = ENV["MATOMO_URL"]
+  config.matomo_site_id = ENV["MATOMO_SITE_ID"]
+  config.matomo_api_token = ENV["MATOMO_TOKEN"]
+  config.matomo_insecure = ENV["MATOMO_INSECURE"].to_s.downcase == "true"
   # this is a Base64.encode64 encoded personal access token
   # you need to run Base64.decode64 on it before using it in your code
   # this is a workaround because Github does not allow storing access tokens in a repo

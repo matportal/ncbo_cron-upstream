@@ -5,6 +5,10 @@ require 'google/analytics/data'
 require 'google/apis/analytics_v3'
 require 'google/api_client/auth/key_utils'
 
+require_relative 'matomo_connector'
+require_relative 'matomo_ontology_visits_analytics'
+require_relative 'matomo_user_visits_analytics'
+require_relative 'matomo_page_visits_analytics'
 require_relative 'ontology_visits_analytics'
 require_relative 'user_visits_analytics'
 require_relative 'page_visits_analytics'
@@ -21,19 +25,34 @@ module NcboCron
 
 
         @logger = logger
-        @logger.info "Authenticating with the Google Analytics Endpoint..."
-        @ga_conn = GoogleAnalyticsConnector.new
-
-        @analytics_objects = [
-          NcboCron::Models::OntologyVisitsAnalytics,
-          NcboCron::Models::UsersVisitsAnalytics,
-          NcboCron::Models::PageVisitsAnalytics,
-        ]
+        if matomo_configured?
+          @logger.info "Authenticating with the Matomo Reporting API..."
+          @analytics_conn = MatomoConnector.new(
+            url: NcboCron.settings.matomo_url,
+            token: NcboCron.settings.matomo_api_token,
+            site_id: NcboCron.settings.matomo_site_id,
+            logger: @logger,
+            insecure: NcboCron.settings.matomo_insecure
+          )
+          @analytics_objects = [
+            NcboCron::Models::MatomoOntologyVisitsAnalytics,
+            NcboCron::Models::MatomoUsersVisitsAnalytics,
+            NcboCron::Models::MatomoPageVisitsAnalytics
+          ]
+        else
+          @logger.info "Authenticating with the Google Analytics Endpoint..."
+          @analytics_conn = GoogleAnalyticsConnector.new
+          @analytics_objects = [
+            NcboCron::Models::OntologyVisitsAnalytics,
+            NcboCron::Models::UsersVisitsAnalytics,
+            NcboCron::Models::PageVisitsAnalytics
+          ]
+        end
       end
 
       def run
         redis = Redis.new(:host => @redis_host, :port => @redis_port)
-        @logger.info "Starting Google Analytics refresh..."
+        @logger.info "Starting analytics refresh..."
         time = Benchmark.realtime do
           @logger.info "Fetching saved analytics data..."
           save = {}
@@ -41,14 +60,14 @@ module NcboCron
           @analytics_objects.each do |analytic_object|
             analytic_object = analytic_object.new(start_date: detect_latest_date, old_data: @old_data)
             @logger.info "Start fetching new #{analytic_object.redis_field}  data..."
-            new_data = analytic_object.full_data(@logger, @ga_conn)
+            new_data = analytic_object.full_data(@logger, @analytics_conn)
             save[analytic_object.redis_field] = new_data
             redis.set(analytic_object.redis_field, Marshal.dump(new_data))
             @logger.info "Completed fetching #{analytic_object.redis_field}  data..."
           end
           save_data_in_file(save)
         end
-        @logger.info "Completed Google Analytics refresh in #{(time / 60).round(1)} minutes."
+        @logger.info "Completed analytics refresh in #{(time / 60).round(1)} minutes."
         @logger.flush
       end
 
@@ -67,6 +86,15 @@ module NcboCron
           nil
         end
 
+      end
+
+      def matomo_configured?
+        NcboCron.settings.respond_to?(:matomo_url) &&
+          NcboCron.settings.respond_to?(:matomo_site_id) &&
+          NcboCron.settings.respond_to?(:matomo_api_token) &&
+          NcboCron.settings.matomo_url.to_s.strip != "" &&
+          NcboCron.settings.matomo_site_id.to_s.strip != "" &&
+          NcboCron.settings.matomo_api_token.to_s.strip != ""
       end
 
       def save_data_in_file(new_data, saved_date =  Date.today.to_s, data_file =  @data_file)
