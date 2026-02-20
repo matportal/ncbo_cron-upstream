@@ -89,6 +89,7 @@ NcboCron.config do |config|
   # Matomo analytics config (preferred over GA when provided)
   config.matomo_url = ENV["MATOMO_URL"]
   config.matomo_site_id = ENV["MATOMO_SITE_ID"]
+  config.matomo_site_url = ENV["MATOMO_SITE_URL"]
   config.matomo_api_token = ENV["MATOMO_TOKEN"]
   config.matomo_insecure = ENV["MATOMO_INSECURE"].to_s.downcase == "true"
   # this is a Base64.encode64 encoded personal access token
